@@ -50,19 +50,17 @@ impl Encoder {
                 ));
             } else {
                 assert!(kt as usize * config.symbol_size() as usize >= data.len());
-                if kt as usize * config.symbol_size() as usize > data.len() {
-                    // Zero pad the last symbol
-                    let mut padded = Vec::from(&data[data_index..]);
-                    padded.extend(vec![
-                        0;
-                        kt as usize * config.symbol_size() as usize - data.len()
-                    ]);
-                    blocks.push(SourceBlockEncoder::new(
-                        i as u8,
-                        config.symbol_size(),
-                        &padded,
-                    ));
-                }
+                // Zero pad the last symbol
+                let mut padded = Vec::from(&data[data_index..]);
+                padded.extend(vec![
+                    0;
+                    kt as usize * config.symbol_size() as usize - data.len()
+                ]);
+                blocks.push(SourceBlockEncoder::new(
+                    i as u8,
+                    config.symbol_size(),
+                    &padded,
+                ));
             }
             data_index += offset;
         }
