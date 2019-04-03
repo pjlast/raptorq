@@ -20,6 +20,56 @@ pub struct Encoder {
 }
 
 impl Encoder {
+    pub fn new(data: &[u8], config: ObjectTransmissionInformation) -> Encoder {
+        let kt = (config.transfer_length() as f64 / config.symbol_size() as f64).ceil() as u32;
+        let (kl, ks, zl, zs) = partition(kt, config.source_blocks());
+
+        // TODO: support subblocks
+        assert_eq!(1, config.sub_blocks());
+        //        let (tl, ts, nl, ns) = partition((config.symbol_size() / config.alignment() as u16) as u32, config.sub_blocks());
+
+        let mut data_index = 0;
+        let mut blocks = vec![];
+        for i in 0..zl {
+            let offset = kl as usize * config.symbol_size() as usize;
+            blocks.push(SourceBlockEncoder::new(
+                i as u8,
+                config.symbol_size(),
+                &data[data_index..(data_index + offset)],
+            ));
+            data_index += offset;
+        }
+
+        for i in 0..zs {
+            let offset = ks as usize * config.symbol_size() as usize;
+            if data_index + offset < data.len() {
+                blocks.push(SourceBlockEncoder::new(
+                    i as u8,
+                    config.symbol_size(),
+                    &data[data_index..(data_index + offset)],
+                ));
+            } else {
+                assert!(kt as usize * config.symbol_size() as usize >= data.len());
+                if kt as usize * config.symbol_size() as usize > data.len() {
+                    // Zero pad the last symbol
+                    let mut padded = Vec::from(&data[data_index..]);
+                    padded.extend(vec![
+                        0;
+                        kt as usize * config.symbol_size() as usize - data.len()
+                    ]);
+                    blocks.push(SourceBlockEncoder::new(
+                        i as u8,
+                        config.symbol_size(),
+                        &padded,
+                    ));
+                }
+            }
+            data_index += offset;
+        }
+
+        Encoder { config, blocks }
+    }
+
     pub fn with_defaults(data: &[u8], maximum_transmission_unit: u16) -> Encoder {
         let config = ObjectTransmissionInformation::with_defaults(
             data.len() as u64,
